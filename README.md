@@ -28,11 +28,13 @@ git clone https://github.com/ritesh-devpro/drconnect.git
 ### 2. Install dependencies
 
 cd backend && npm install
+
 cd ../frontend && npm install
 
 
 ### 3. Run project
 
 cd backend && npm run dev
+
 cd frontend && npm run dev
 
