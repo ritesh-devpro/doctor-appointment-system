@@ -1,7 +1,6 @@
 import { Appointment } from "../models/Appointment.js";
 import { Doctor } from "../models/Doctor.js";
 
-
 export const getDoctorDashboard = async (req, res) => {
   try {
     const doctorId = req.user._id;
@@ -23,9 +22,10 @@ export const getDoctorDashboard = async (req, res) => {
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
 
+
       Appointment.find({
         doctor: doctorId,
-        status: "booked",
+        status: { $in: ["booked", "pending", "confirmed"] },
         slot: { $gte: new Date() },
       })
         .populate("patient", "name email")
@@ -55,7 +55,6 @@ export const getDoctorDashboard = async (req, res) => {
   }
 };
 
-
 export const getDoctorProfile = async (req, res) => {
   try {
     res.json({ doctor: req.user });
@@ -63,7 +62,6 @@ export const getDoctorProfile = async (req, res) => {
     res.status(500).json({ message: "Error fetching profile" });
   }
 };
-
 
 export const updateDoctorProfile = async (req, res) => {
   try {
@@ -102,7 +100,6 @@ export const updateDoctorProfile = async (req, res) => {
         if (date.getTime() > new Date().getTime()) {
           const time = date.getTime();
 
-       
           if (!existingSlots.includes(time)) {
             req.user.slots.push({
               start: date,
@@ -112,7 +109,6 @@ export const updateDoctorProfile = async (req, res) => {
         }
       });
 
-  
       req.user.slots.sort(
         (a, b) => new Date(a.start) - new Date(b.start)
       );
@@ -130,7 +126,6 @@ export const updateDoctorProfile = async (req, res) => {
   }
 };
 
-
 export const toggleDoctorAvailability = async (req, res) => {
   try {
     req.user.available = !req.user.available;
@@ -141,7 +136,6 @@ export const toggleDoctorAvailability = async (req, res) => {
     res.status(500).json({ message: "Toggle failed" });
   }
 };
-
 
 export const getDoctorAppointments = async (req, res) => {
   try {
@@ -182,7 +176,6 @@ export const cancelDoctorAppointment = async (req, res) => {
     appointment.cancelledBy = "doctor";
     await appointment.save();
 
-   
     await Doctor.updateOne(
       {
         _id: req.user._id,
@@ -196,7 +189,6 @@ export const cancelDoctorAppointment = async (req, res) => {
     res.status(500).json({ message: "Cancel failed" });
   }
 };
-
 
 export const completeDoctorAppointment = async (req, res) => {
   try {
