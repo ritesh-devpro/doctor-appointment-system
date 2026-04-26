@@ -66,7 +66,7 @@ export const BookingPage = () => {
         <div className="bg-gradient-to-br from-brand-100 to-white p-5">
           <img
             src={
-              doctor.image
+              <img src={`${import.meta.env.VITE_UPLOADS_URL}/uploads/${doctor.image}`} />
                 ? doctor.image.startsWith("http")
                   ? doctor.image
                   : `${uploadsBase}${doctor.image}`

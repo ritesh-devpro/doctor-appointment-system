@@ -7,7 +7,7 @@ export const DoctorCard = ({ doctor }) => (
       <div className="w-full aspect-[4/3] overflow-hidden rounded-2xl">
         <img
           src={
-            doctor.image
+            <img src={`${import.meta.env.VITE_UPLOADS_URL}/uploads/${doctor.image}`} />
               ? doctor.image.startsWith("http")
                 ? doctor.image
                 : `${uploadsBase}${doctor.image}`
