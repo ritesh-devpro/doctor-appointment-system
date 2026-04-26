@@ -35,6 +35,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
+app.get("/", (req, res) => {
+  res.send("DrConnect API is running ");
+});
+
 app.get("/api/health", (req, res) => {
   res.json({ message: "DrConnect API is running" });
 });
