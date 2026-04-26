@@ -5,16 +5,16 @@ export const DoctorCard = ({ doctor }) => (
   <div className="card overflow-hidden">
     <div className="bg-gradient-to-br from-brand-100 to-white p-5">
       <div className="w-full aspect-[4/3] overflow-hidden rounded-2xl">
+        const imageUrl = doctor.image ? doctor.image.startsWith("http") ?
+        doctor.image : `${import.meta.env.VITE_UPLOADS_URL}${doctor.image}` :
+        "https://placehold.co/400x300?text=Doctor";
         <img
-          src={
-            doctor.image
-              ? doctor.image.startsWith("http")
-                ? doctor.image
-                : `${import.meta.env.VITE_UPLOADS_URL}/uploads/${doctor.image}`
-              : "https://placehold.co/400x300?text=Doctor"
-          }
+          src={imageUrl}
           alt={doctor.name}
           className="w-full h-full object-cover object-top"
+          onError={(e) => {
+            e.target.src = "https://placehold.co/400x300?text=Doctor";
+          }}
         />
       </div>
     </div>
