@@ -4,7 +4,7 @@ backend/.DS_Store
 frontend/node_modules
 backend/.env
 frontend/.env
-backend/uploads/*
+# backend/uploads/*
 !backend/uploads/.gitkeep
 dist
 frontend/dist/
