@@ -33,6 +33,7 @@ const appointmentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+
 appointmentSchema.index(
   { doctor: 1, slot: 1 },
   {
@@ -40,5 +41,10 @@ appointmentSchema.index(
     partialFilterExpression: { status: { $ne: "cancelled" } },
   }
 );
+
+
+appointmentSchema.index({ status: 1, slot: 1 });       // dashboard query
+appointmentSchema.index({ slot: 1 });                  // sorting + filtering
+appointmentSchema.index({ paymentStatus: 1 });         // revenue
 
 export const Appointment = mongoose.model("Appointment", appointmentSchema);
