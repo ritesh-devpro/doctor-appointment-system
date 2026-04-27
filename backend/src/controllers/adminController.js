@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { Appointment } from "../models/Appointment.js";
 import { Doctor } from "../models/Doctor.js";
 import { User } from "../models/User.js";
-import { cloudinary } from "../config/cloudinary.js"; 
+import { cloudinary } from "../config/cloudinary.js";
 import streamifier from "streamifier";
 
 
@@ -28,7 +28,7 @@ const generateSlots = (date) => {
       const slotTime = new Date(date);
       slotTime.setHours(h, m, 0, 0);
 
-      if (slotTime.getTime() > new Date().getTime()) {
+      if (slotTime.getTime() > Date.now()) {
         slots.push({
           start: new Date(slotTime),
           isBooked: false,
@@ -63,9 +63,11 @@ export const addDoctor = async (req, res) => {
       return res.status(400).json({ message: "Required fields missing" });
     }
 
+    const normalizedEmail = email.toLowerCase();
+
     const [doctorExists, userExists] = await Promise.all([
-      Doctor.findOne({ email: email.toLowerCase() }),
-      User.findOne({ email: email.toLowerCase() }),
+      Doctor.findOne({ email: normalizedEmail }),
+      User.findOne({ email: normalizedEmail }),
     ]);
 
     if (doctorExists || userExists) {
@@ -76,7 +78,6 @@ export const addDoctor = async (req, res) => {
 
     let normalizedSlots = [];
 
-
     let parsedSlots = [];
     try {
       parsedSlots = Array.isArray(slots)
@@ -86,51 +87,37 @@ export const addDoctor = async (req, res) => {
       return res.status(400).json({ message: "Invalid slot format" });
     }
 
-
     if (parsedSlots.length > 0) {
       normalizedSlots = parsedSlots
         .map((slot) => new Date(slot))
         .filter((slot) => !Number.isNaN(slot.getTime()))
-        .filter((slot) => slot.getTime() > new Date().getTime())
+        .filter((slot) => slot.getTime() > Date.now())
         .sort((a, b) => a - b)
         .map((slot) => ({
           start: slot,
           isBooked: false,
         }));
-    } else if (generateSlotsDate) {
-      const baseDate = new Date(generateSlotsDate);
+    } else {
+      const baseDate = generateSlotsDate
+        ? new Date(generateSlotsDate)
+        : new Date();
 
       for (let d = 0; d < 5; d++) {
         const day = new Date(baseDate);
         day.setDate(baseDate.getDate() + d);
         normalizedSlots.push(...generateSlots(day));
       }
-    } else {
-      const today = new Date();
-
-      for (let d = 0; d < 5; d++) {
-        const day = new Date(today);
-        day.setDate(today.getDate() + d);
-        normalizedSlots.push(...generateSlots(day));
-      }
     }
 
     const uniqueMap = new Map();
-
     normalizedSlots.forEach((slot) => {
       const time = new Date(slot.start).getTime();
-      if (!uniqueMap.has(time)) {
-        uniqueMap.set(time, slot);
-      }
+      if (!uniqueMap.has(time)) uniqueMap.set(time, slot);
     });
 
-    normalizedSlots = Array.from(uniqueMap.values());
-
-
-    normalizedSlots.sort(
+    normalizedSlots = Array.from(uniqueMap.values()).sort(
       (a, b) => new Date(a.start) - new Date(b.start)
     );
-
 
     let imageUrl = "";
 
@@ -138,10 +125,10 @@ export const addDoctor = async (req, res) => {
       const result = await uploadToCloudinary(req.file.buffer);
       imageUrl = result.secure_url;
     }
-  
+
     const doctor = await Doctor.create({
       name,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       password: hashedPassword,
       specialty,
       degree,
@@ -162,14 +149,15 @@ export const addDoctor = async (req, res) => {
       doctor: await Doctor.findById(doctor._id).select("-password"),
     });
   } catch (error) {
-    console.error(error);
+    console.error("Add Doctor Error:", error);
     res.status(500).json({ message: "Error adding doctor" });
   }
 };
 
-
 export const getAdminDashboard = async (req, res) => {
   try {
+    const now = new Date();
+
     const [
       doctorCount,
       patientCount,
@@ -180,6 +168,7 @@ export const getAdminDashboard = async (req, res) => {
       Doctor.countDocuments(),
       User.countDocuments({ role: "patient" }),
       Appointment.countDocuments(),
+
       Appointment.aggregate([
         {
           $match: {
@@ -187,16 +176,25 @@ export const getAdminDashboard = async (req, res) => {
             status: { $ne: "cancelled" },
           },
         },
-        { $group: { _id: null, total: { $sum: "$amount" } } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" },
+          },
+        },
       ]),
+
+     
       Appointment.find({
         status: "booked",
-        slot: { $gte: new Date() },
+        slot: { $gte: now },
       })
+        .sort({ slot: 1 })
+        .limit(5)
+        .select("slot doctor patient")
         .populate("doctor", "name specialty")
         .populate("patient", "name")
-        .sort({ slot: 1 })
-        .limit(5),
+        .lean(),
     ]);
 
     res.json({
@@ -209,6 +207,7 @@ export const getAdminDashboard = async (req, res) => {
       upcoming,
     });
   } catch (error) {
+    console.error("Dashboard Error:", error);
     res.status(500).json({ message: "Dashboard error" });
   }
 };
@@ -218,7 +217,8 @@ export const getAllDoctors = async (req, res) => {
   try {
     const doctors = await Doctor.find()
       .select("-password")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({ doctors });
   } catch (error) {
@@ -226,18 +226,22 @@ export const getAllDoctors = async (req, res) => {
   }
 };
 
+
 export const getAllAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find()
+      .select("doctor patient slot status paymentStatus amount createdAt")
       .populate("doctor", "name specialty")
       .populate("patient", "name email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({ appointments });
   } catch (error) {
     res.status(500).json({ message: "Error fetching appointments" });
   }
 };
+
 
 export const cancelAppointmentAsAdmin = async (req, res) => {
   try {
@@ -261,7 +265,6 @@ export const cancelAppointmentAsAdmin = async (req, res) => {
     appointment.cancelledBy = "admin";
     await appointment.save();
 
-  
     await Doctor.updateOne(
       {
         _id: appointment.doctor._id,
@@ -272,6 +275,7 @@ export const cancelAppointmentAsAdmin = async (req, res) => {
 
     res.json({ message: "Appointment cancelled" });
   } catch (error) {
+    console.error("Cancel Error:", error);
     res.status(500).json({ message: "Cancel failed" });
   }
 };
